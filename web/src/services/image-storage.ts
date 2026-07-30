@@ -16,7 +16,7 @@ const store = localforage.createInstance({ name: "infinite-canvas", storeName: "
 const objectUrls = new Map<string, string>();
 
 export async function uploadImage(input: string | Blob): Promise<UploadedImage> {
-    const blob = typeof input === "string" ? await (await fetch(input)).blob() : input;
+    const blob = typeof input === "string" ? await fetchImageBlob(input) : input;
     const storageKey = `image:${nanoid()}`;
     await store.setItem(storageKey, blob);
     const url = URL.createObjectURL(blob);
@@ -50,7 +50,15 @@ export async function setImageBlob(storageKey: string, blob: Blob) {
 export async function imageToDataUrl(image: { url?: string; dataUrl?: string; storageKey?: string }) {
     const url = image.dataUrl || (await resolveImageUrl(image.storageKey, image.url || ""));
     if (!url || url.startsWith("data:")) return url;
-    return blobToDataUrl(await (await fetch(url)).blob());
+    return blobToDataUrl(await fetchImageBlob(url));
+}
+
+async function fetchImageBlob(url: string) {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`图片文件读取失败：HTTP ${response.status}`);
+    const blob = await response.blob();
+    if (!blob.type.startsWith("image/")) throw new Error(`图片文件读取失败：服务返回了 ${blob.type || "未知格式"}`);
+    return blob;
 }
 
 export async function deleteStoredImages(keys: Iterable<string>) {

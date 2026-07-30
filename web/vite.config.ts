@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, loadEnv, type Plugin, type ProxyOptions } from "vite";
 
 import { parseChangelog } from "./src/lib/release";
 
@@ -38,16 +38,42 @@ function localPluginsManifest(): Plugin {
     };
 }
 
-export default defineConfig({
-    base: process.env.VITE_BASE || "/",
-    plugins: [react(), localPluginsManifest()],
-    resolve: {
-        alias: {
-            "@": resolve(webDir, "src"),
+export default defineConfig(({ mode }) => {
+    const env = loadEnv(mode, webDir, "");
+    const xgApiKey = env.XG_API_KEY?.trim();
+    const xgProxy: ProxyOptions = {
+        target: env.XG_API_BASE_URL?.trim() || "http://127.0.0.1:18080",
+        changeOrigin: true,
+        rewrite: (path: string) => path.replace(/^\/xg-api/, ""),
+        configure(proxy) {
+            proxy.on("proxyReq", (proxyRequest) => {
+                proxyRequest.removeHeader("authorization");
+                if (xgApiKey) proxyRequest.setHeader("Authorization", `Bearer ${xgApiKey}`);
+            });
         },
-    },
-    define: {
-        __APP_VERSION__: JSON.stringify(localVersion),
-        __APP_RELEASES__: JSON.stringify(parseChangelog(localChangelog)),
-    },
+    };
+
+    return {
+        base: process.env.VITE_BASE || "/",
+        plugins: [react(), localPluginsManifest()],
+        resolve: {
+            alias: {
+                "@": resolve(webDir, "src"),
+            },
+        },
+        define: {
+            __APP_VERSION__: JSON.stringify(localVersion),
+            __APP_RELEASES__: JSON.stringify(parseChangelog(localChangelog)),
+        },
+        server: {
+            host: "0.0.0.0",
+            port: 3000,
+            proxy: { "/xg-api": xgProxy },
+        },
+        preview: {
+            host: "0.0.0.0",
+            port: 3000,
+            proxy: { "/xg-api": xgProxy },
+        },
+    };
 });

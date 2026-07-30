@@ -3,7 +3,9 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { nanoid } from "nanoid";
 
-export type ApiCallFormat = "openai" | "gemini" | "ark";
+import { LEGACY_BRIDGE_MODELS, MINIMAX_BASE_URL, MINIMAX_CHANNEL_ID, MINIMAX_MODELS, XG_CHANNEL_ID, XG_MODELS, XG_PROXY_PATH, localWebProxyBaseUrl } from "@/integrations/local-provider-presets";
+
+export type ApiCallFormat = "openai" | "gemini" | "ark" | "minimax" | "xg";
 export type ModelCapability = "image" | "video" | "text" | "audio";
 export type ReasoningEffort = "auto" | "low" | "medium" | "high" | "xhigh";
 
@@ -65,6 +67,9 @@ const CHANNEL_MODEL_SEPARATOR = "::";
 const OPENAI_BASE_URL = "https://api.openai.com";
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com";
 const ARK_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
+const XG_BASE_URL = localWebProxyBaseUrl(XG_PROXY_PATH);
+const xgImageModelOption = encodeChannelModel(XG_CHANNEL_ID, "gpt-image-2");
+const xgTextModelOption = encodeChannelModel(XG_CHANNEL_ID, "auto");
 
 export const defaultConfig: AiConfig = {
     channelMode: "local",
@@ -85,11 +90,27 @@ export const defaultConfig: AiConfig = {
                 { name: "gpt-4o-mini-tts", capability: "audio" },
             ],
         },
+        {
+            id: XG_CHANNEL_ID,
+            name: "XG生图 Web API",
+            baseUrl: XG_BASE_URL,
+            apiKey: "",
+            apiFormat: "xg",
+            models: XG_MODELS,
+        },
+        {
+            id: MINIMAX_CHANNEL_ID,
+            name: "MiniMax",
+            baseUrl: MINIMAX_BASE_URL,
+            apiKey: "",
+            apiFormat: "minimax",
+            models: MINIMAX_MODELS,
+        },
     ],
-    model: "default::gpt-image-2",
-    imageModel: "default::gpt-image-2",
+    model: xgImageModelOption,
+    imageModel: xgImageModelOption,
     videoModel: "default::grok-imagine-video",
-    textModel: "default::gpt-5.5",
+    textModel: xgTextModelOption,
     audioModel: "default::gpt-4o-mini-tts",
     audioVoice: "alloy",
     audioFormat: "mp3",
@@ -101,7 +122,14 @@ export const defaultConfig: AiConfig = {
     videoWatermark: "false",
     systemPrompt: "",
     reasoningEffort: "auto",
-    models: ["default::gpt-image-2", "default::grok-imagine-video", "default::gpt-5.5", "default::gpt-4o-mini-tts"],
+    models: [
+        "default::gpt-image-2",
+        "default::grok-imagine-video",
+        "default::gpt-5.5",
+        "default::gpt-4o-mini-tts",
+        ...XG_MODELS.map((model) => encodeChannelModel(XG_CHANNEL_ID, model.name)),
+        ...MINIMAX_MODELS.map((model) => encodeChannelModel(MINIMAX_CHANNEL_ID, model.name)),
+    ],
     quality: "auto",
     size: "1:1",
     background: "",
@@ -181,7 +209,11 @@ export function resolveModelScript(config: AiConfig, value: string) {
 
 function isAiConfigReady(config: AiConfig, model: string) {
     const channel = resolveModelChannel(config, model);
-    return Boolean(model.trim() && channel.baseUrl.trim() && channel.apiKey.trim());
+    return Boolean(model.trim() && channel.baseUrl.trim() && (channel.apiFormat === "xg" || channel.apiKey.trim()));
+}
+
+export function isModelChannelReady(channel: ModelChannel) {
+    return Boolean(channel.baseUrl.trim() && (channel.apiFormat === "xg" || channel.apiKey.trim()));
 }
 
 export const useConfigStore = create<ConfigStore>()(
@@ -231,9 +263,10 @@ export const useConfigStore = create<ConfigStore>()(
                         apiFormat: normalizeApiFormat(config.apiFormat),
                         channels,
                         models,
-                        imageModel: normalizeModelOptionValue(config.imageModel || config.model, channels),
+                        model: migrateLegacyModelOption(config.model, channels, xgImageModelOption),
+                        imageModel: migrateLegacyModelOption(config.imageModel || config.model, channels, xgImageModelOption),
                         videoModel: normalizeModelOptionValue(config.videoModel, channels),
-                        textModel: normalizeModelOptionValue(config.textModel || config.model, channels),
+                        textModel: migrateLegacyModelOption(config.textModel || config.model, channels, xgTextModelOption),
                         audioModel: normalizeModelOptionValue(config.audioModel || defaultConfig.audioModel, channels),
                         audioVoice: config.audioVoice || defaultConfig.audioVoice,
                         audioFormat: config.audioFormat || defaultConfig.audioFormat,
@@ -329,7 +362,11 @@ export function resolveModelChannel(config: AiConfig, value: string) {
     const decoded = decodeChannelModel(value);
     const model = decoded?.model || value;
     const matched = decoded ? config.channels.find((channel) => channel.id === decoded.channelId) : config.channels.find((channel) => channel.models.some((item) => item.name === model));
-    return matched || config.channels[0] || createModelChannel({ id: "default", name: "默认渠道", baseUrl: config.baseUrl, apiKey: config.apiKey, apiFormat: config.apiFormat, models: config.models.map(modelOptionName).map((name) => ({ name, capability: guessCapability(name) })) });
+    return (
+        matched ||
+        config.channels[0] ||
+        createModelChannel({ id: "default", name: "默认渠道", baseUrl: config.baseUrl, apiKey: config.apiKey, apiFormat: config.apiFormat, models: config.models.map(modelOptionName).map((name) => ({ name, capability: guessCapability(name) })) })
+    );
 }
 
 export function resolveModelRequestConfig(config: AiConfig, value: string) {
@@ -365,17 +402,102 @@ function normalizeChannels(config: AiConfig) {
             }),
         );
     }
-    return channels;
+    return ensureMiniMaxChannel(ensureXgChannel(channels));
+}
+
+function ensureXgChannel(channels: ModelChannel[]) {
+    const sanitized = channels
+        .filter((channel) => channel.id !== "chatgpt-bridge" && String(channel.apiFormat) !== "chatgpt-bridge" && !isLegacyBridgeBaseUrl(channel.baseUrl))
+        .map((channel) => ({
+            ...channel,
+            models: channel.models.filter((model) => !LEGACY_BRIDGE_MODELS.includes(model.name as (typeof LEGACY_BRIDGE_MODELS)[number])),
+        }));
+    const index = sanitized.findIndex((channel) => channel.id === XG_CHANNEL_ID || channel.apiFormat === "xg" || isXgBaseUrl(channel.baseUrl));
+    if (index < 0) {
+        return [
+            ...sanitized,
+            createModelChannel({
+                id: XG_CHANNEL_ID,
+                name: "XG生图 Web API",
+                baseUrl: XG_BASE_URL,
+                apiFormat: "xg",
+                models: XG_MODELS,
+            }),
+        ];
+    }
+    return sanitized.map((channel, channelIndex) =>
+        channelIndex === index
+            ? {
+                  ...channel,
+                  id: XG_CHANNEL_ID,
+                  name: "XG生图 Web API",
+                  baseUrl: XG_BASE_URL,
+                  apiKey: "",
+                  apiFormat: "xg" as const,
+                  models: normalizeChannelModels([...channel.models.filter((model) => model.name === "auto" || model.name === "gpt-image-2" || !model.name.toLowerCase().includes("gpt-image")), ...XG_MODELS]),
+              }
+            : channel,
+    );
+}
+
+function ensureMiniMaxChannel(channels: ModelChannel[]) {
+    const index = channels.findIndex((channel) => channel.id === MINIMAX_CHANNEL_ID || channel.apiFormat === "minimax" || isMiniMaxBaseUrl(channel.baseUrl));
+    if (index < 0) {
+        return [
+            ...channels,
+            createModelChannel({
+                id: MINIMAX_CHANNEL_ID,
+                name: "MiniMax",
+                baseUrl: MINIMAX_BASE_URL,
+                apiFormat: "minimax",
+                models: MINIMAX_MODELS,
+            }),
+        ];
+    }
+    return channels.map((channel, channelIndex) =>
+        channelIndex === index
+            ? {
+                  ...channel,
+                  id: MINIMAX_CHANNEL_ID,
+                  name: channel.name === "默认渠道" ? "MiniMax" : channel.name || "MiniMax",
+                  baseUrl: channel.baseUrl || MINIMAX_BASE_URL,
+                  apiFormat: "minimax" as const,
+                  models: normalizeChannelModels([...channel.models, ...MINIMAX_MODELS]),
+              }
+            : channel,
+    );
+}
+
+function migrateLegacyModelOption(value: string | undefined, channels: ModelChannel[], fallback: string) {
+    const option = value?.trim() || "";
+    if (option.startsWith("chatgpt-bridge::") || LEGACY_BRIDGE_MODELS.includes(modelOptionName(option) as (typeof LEGACY_BRIDGE_MODELS)[number])) return fallback;
+    return normalizeModelOptionValue(option, channels) || fallback;
+}
+
+function isLegacyBridgeBaseUrl(baseUrl: string) {
+    const value = baseUrl.trim();
+    return value.includes("/workflow-bridge") || /(^|\/\/)(127\.0\.0\.1|localhost)(:18787)(\/|$)/i.test(value);
+}
+
+function isXgBaseUrl(baseUrl: string) {
+    const value = baseUrl.trim();
+    return value.includes(XG_PROXY_PATH) || /(^|\/\/)(127\.0\.0\.1|localhost)(:18080)(\/|$)/i.test(value);
+}
+
+function isMiniMaxBaseUrl(baseUrl: string) {
+    return /(^|\.)minimaxi\.com(?=\/|$)/i.test(baseUrl.trim().replace(/^https?:\/\//, ""));
 }
 
 export function defaultBaseUrlForApiFormat(apiFormat: ApiCallFormat) {
     if (apiFormat === "gemini") return GEMINI_BASE_URL;
     if (apiFormat === "ark") return ARK_BASE_URL;
+    if (apiFormat === "minimax") return MINIMAX_BASE_URL;
+    if (apiFormat === "xg") return XG_BASE_URL;
     return OPENAI_BASE_URL;
 }
 
 function normalizeApiFormat(apiFormat: unknown): ApiCallFormat {
-    return apiFormat === "gemini" || apiFormat === "ark" ? apiFormat : "openai";
+    return apiFormat === "gemini" || apiFormat === "ark" || apiFormat === "minimax" || apiFormat === "xg" ? apiFormat : "openai";
 }
 
 function uniqueModelOptions(models: string[]) {

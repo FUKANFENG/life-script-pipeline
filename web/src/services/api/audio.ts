@@ -6,6 +6,13 @@ import { buildApiUrl, resolveModelRequestConfig, resolveModelScript, type AiConf
 import { runModelPlugin } from "./model-plugin";
 
 type RequestOptions = { signal?: AbortSignal };
+type MiniMaxBaseResp = { status_code?: number; status_msg?: string };
+type MiniMaxAudioResponse = {
+    data?: { audio?: string; status?: number };
+    extra_info?: { audio_format?: string; audio_sample_rate?: number };
+    base_resp?: MiniMaxBaseResp;
+    trace_id?: string;
+};
 
 function aiApiUrl(config: AiConfig, path: string) {
     return buildApiUrl(config.baseUrl, path);
@@ -45,6 +52,7 @@ export async function requestAudioGeneration(config: AiConfig, prompt: string, o
     const instructions = config.audioInstructions.trim();
 
     try {
+        if (requestConfig.apiFormat === "minimax") return await requestMiniMaxAudio(requestConfig, prompt, format, options);
         const response = await axios.post<Blob>(
             aiApiUrl(requestConfig, "/audio/speech"),
             {
@@ -62,6 +70,38 @@ export async function requestAudioGeneration(config: AiConfig, prompt: string, o
     } catch (error) {
         throw new Error(readAxiosError(error, "音频生成失败"));
     }
+}
+
+async function requestMiniMaxAudio(config: AiConfig, prompt: string, format: string, options?: RequestOptions) {
+    const minimaxFormat = normalizeMiniMaxAudioFormat(format);
+    const response = await axios.post<MiniMaxAudioResponse>(
+        aiApiUrl(config, "/t2a_v2"),
+        {
+            model: config.model.trim() || "speech-2.8-hd",
+            text: prompt.slice(0, 10000),
+            stream: false,
+            output_format: "hex",
+            voice_setting: {
+                voice_id: normalizeMiniMaxVoice(config.audioVoice),
+                speed: normalizeMiniMaxSpeed(config.audioSpeed),
+                vol: 1,
+                pitch: 0,
+            },
+            audio_setting: {
+                sample_rate: 32000,
+                bitrate: 128000,
+                format: minimaxFormat,
+                channel: 1,
+            },
+            subtitle_enable: false,
+            aigc_watermark: false,
+        },
+        { headers: aiHeaders(config), signal: options?.signal },
+    );
+    validateMiniMaxBaseResp(response.data.base_resp);
+    const audioHex = response.data.data?.audio;
+    if (!audioHex) throw new Error("MiniMax 音频接口没有返回音频数据");
+    return new Blob([hexToBytes(audioHex)], { type: audioMimeType(minimaxFormat) });
 }
 
 async function audioPluginBlob(result: unknown, format: string): Promise<Blob> {
@@ -90,6 +130,34 @@ function assertAudioConfig(config: AiConfig, model: string) {
     if (config.apiFormat === "gemini") throw new Error("Gemini 调用格式暂不支持音频生成，请使用 OpenAI 格式渠道");
 }
 
+function normalizeMiniMaxAudioFormat(format: string) {
+    return ["mp3", "wav", "opus", "flac", "pcm"].includes(format) ? format : "mp3";
+}
+
+function normalizeMiniMaxVoice(voice: string) {
+    const value = voice.trim();
+    if (value && !["alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse", "marin", "cedar"].includes(value)) return value;
+    return "male-qn-qingse";
+}
+
+function normalizeMiniMaxSpeed(value: string) {
+    const speed = Number(normalizeAudioSpeedValue(value));
+    return Math.max(0.5, Math.min(2, Number(speed.toFixed(2))));
+}
+
+function validateMiniMaxBaseResp(baseResp: MiniMaxBaseResp | undefined) {
+    if (baseResp?.status_code && baseResp.status_code !== 0) throw new Error(baseResp.status_msg || `MiniMax 请求失败：${baseResp.status_code}`);
+}
+
+function hexToBytes(hex: string) {
+    const clean = hex.trim();
+    const bytes = new Uint8Array(Math.floor(clean.length / 2));
+    for (let i = 0; i < bytes.length; i += 1) {
+        bytes[i] = Number.parseInt(clean.slice(i * 2, i * 2 + 2), 16);
+    }
+    return bytes;
+}
+
 async function assertAudioBlob(blob: Blob) {
     if (!blob.type.includes("json")) return;
     let payload: { code?: number; msg?: string; error?: { message?: string } };
@@ -116,18 +184,9 @@ function readApiErrorMessage(value: unknown): string {
         }
     }
     if (typeof value !== "object") return "";
-    const payload = value as { msg?: unknown; message?: unknown; error?: unknown; detail?: unknown };
-    const errorMsg =
-        typeof payload.error === "string"
-            ? payload.error
-            : (payload.error as { message?: unknown })?.message;
-    return (
-        readApiErrorMessage(payload.msg) ||
-        readApiErrorMessage(payload.message) ||
-        readApiErrorMessage(errorMsg) ||
-        readApiErrorMessage(payload.detail) ||
-        ""
-    );
+    const payload = value as { msg?: unknown; message?: unknown; error?: unknown; detail?: unknown; base_resp?: MiniMaxBaseResp };
+    const errorMsg = typeof payload.error === "string" ? payload.error : (payload.error as { message?: unknown })?.message;
+    return readApiErrorMessage(payload.msg) || readApiErrorMessage(payload.message) || readApiErrorMessage(errorMsg) || readApiErrorMessage(payload.detail) || readApiErrorMessage(payload.base_resp?.status_msg) || "";
 }
 
 function readAxiosError(error: unknown, fallback: string) {

@@ -117,7 +117,7 @@ export function LocalAgentPanel({ embedded, headless, autoConnect }: { embedded?
     const connectedRef = useRef(false);
     const errorLoggedRef = useRef(false);
     const attachmentUrlsRef = useRef(new Set<string>());
-    const clientIdRef = useRef(randomId());
+    const clientIdRef = useRef(searchParams.get("agentClientId") || randomId());
     const loadThreadsSequenceRef = useRef(0);
     const resetThreadRef = useRef<Promise<unknown> | null>(null);
     const endpoint = useMemo(() => url.trim().replace(/\/$/, ""), [url]);

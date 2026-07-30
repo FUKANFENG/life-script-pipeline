@@ -3,7 +3,7 @@ import { RefreshCw, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { fetchChannelModels } from "@/services/api/image";
-import type { ModelChannel } from "@/stores/use-config-store";
+import { isModelChannelReady, type ModelChannel } from "@/stores/use-config-store";
 
 // 选择渠道模型弹窗：拉取上游模型列表或手动增加，勾选后才会进入渠道模型列表。
 export function ModelSelectModal({ open, channel, selectedNames, onConfirm, onClose }: { open: boolean; channel: ModelChannel | null; selectedNames: string[]; onConfirm: (names: string[]) => void; onClose: () => void }) {
@@ -59,7 +59,7 @@ export function ModelSelectModal({ open, channel, selectedNames, onConfirm, onCl
 
     const fetchModels = async () => {
         if (!channel) return;
-        if (!channel.baseUrl.trim() || !channel.apiKey.trim()) {
+        if (!isModelChannelReady(channel)) {
             message.error("请先填写接口地址和 API Key");
             return;
         }

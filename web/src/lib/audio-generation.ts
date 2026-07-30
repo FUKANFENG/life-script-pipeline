@@ -12,6 +12,10 @@ export const audioVoiceOptions = [
     { value: "verse", label: "Verse" },
     { value: "marin", label: "Marin" },
     { value: "cedar", label: "Cedar" },
+    { value: "Chinese (Mandarin)_Lyrical_Voice", label: "MiniMax 中文抒情" },
+    { value: "Chinese (Mandarin)_HK_Flight_Attendant", label: "MiniMax 中文空乘" },
+    { value: "English_Graceful_Lady", label: "MiniMax English Graceful Lady" },
+    { value: "English_Persuasive_Man", label: "MiniMax English Persuasive Man" },
 ];
 
 export const audioFormatOptions = [

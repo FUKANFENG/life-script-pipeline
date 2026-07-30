@@ -8,7 +8,9 @@ import { ModelSelectModal } from "./model-select-modal";
 
 const apiFormatOptions: Array<{ label: string; value: ApiCallFormat }> = [
     { label: "OpenAI", value: "openai" },
+    { label: "XG生图 Web API", value: "xg" },
     { label: "Gemini", value: "gemini" },
+    { label: "MiniMax", value: "minimax" },
     { label: "火山方舟", value: "ark" },
 ];
 
@@ -85,7 +87,7 @@ export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: 
                 </label>
                 <label className="block md:col-span-2">
                     <span className="mb-1 block text-sm font-medium">API Key</span>
-                    <Input.Password value={draft.apiKey} onChange={(event) => patch({ apiKey: event.target.value })} placeholder="sk-..." />
+                    {draft.apiFormat === "xg" ? <Input value="由本机代理安全注入" disabled /> : <Input.Password value={draft.apiKey} onChange={(event) => patch({ apiKey: event.target.value })} placeholder="sk-..." />}
                 </label>
             </div>
 

@@ -19,6 +19,7 @@ export default function CanvasPage() {
     const [searchParams] = useSearchParams();
     const inputRef = useRef<HTMLInputElement>(null);
     const autoOpenRef = useRef(false);
+    const autoImportRef = useRef(false);
     const hydrated = useCanvasStore((state) => state.hydrated);
     const projects = useCanvasStore((state) => state.projects);
     const createProject = useCanvasStore((state) => state.createProject);
@@ -27,14 +28,15 @@ export default function CanvasPage() {
     const setDeleteIds = useCanvasUiStore((state) => state.setDeleteProjectIds);
 
     const mode = searchParams.get("mode");
+    const importUrl = searchParams.get("importUrl");
     const agentMode = mode === "new" || mode === "recent" || mode === "choose";
-    const agentQuery = agentMode ? `?${searchParams.toString()}` : "";
+    const hasAgentParams = Boolean(searchParams.get("agentUrl") && searchParams.get("agentToken"));
+    const agentQuery = agentMode || hasAgentParams ? `?${searchParams.toString()}` : "";
     const enterProject = (id: string) => {
         navigate(`/canvas/${id}${agentQuery}`);
     };
     const createAndEnter = () => enterProject(createProject(`无限画布 ${projects.length + 1}`));
-    const importCanvas = async (file?: File) => {
-        if (!file) return;
+    const importCanvasFile = async (file: Blob) => {
         try {
             const zip = await readZip(file);
             const projectFile = zip.get("projects.json");
@@ -50,20 +52,43 @@ export default function CanvasPage() {
                     }),
                 ),
             );
-            data.projects.forEach((item) => importProject(item.project));
+            const importedIds = data.projects.map((item) => importProject(item.project));
             message.success(`已导入 ${data.projects.length} 个画布`);
+            return importedIds;
         } catch {
             message.error("导入失败，请选择有效的画布压缩包");
+            return [];
+        }
+    };
+    const importCanvas = async (file?: File) => {
+        if (!file) return;
+        try {
+            await importCanvasFile(file);
         } finally {
             if (inputRef.current) inputRef.current.value = "";
         }
     };
 
     useEffect(() => {
-        if (!hydrated || autoOpenRef.current || (mode !== "new" && mode !== "recent")) return;
+        if (!hydrated || !importUrl || autoImportRef.current) return;
+        autoImportRef.current = true;
+        void (async () => {
+            try {
+                const response = await fetch(importUrl);
+                if (!response.ok) throw new Error("import failed");
+                const importedIds = await importCanvasFile(await response.blob());
+                if (importedIds[0]) enterProject(importedIds[0]);
+            } catch {
+                message.error("自动导入失败，请检查导入文件地址");
+            }
+        })();
+    }, [hydrated, importUrl]);
+
+    useEffect(() => {
+        if (!hydrated || importUrl || autoOpenRef.current || (mode !== "new" && mode !== "recent")) return;
         autoOpenRef.current = true;
         enterProject(mode === "new" ? createProject(`无限画布 ${projects.length + 1}`) : projects[0]?.id || createProject(`无限画布 ${projects.length + 1}`));
-    }, [createProject, hydrated, mode, projects]);
+    }, [createProject, hydrated, importUrl, mode, projects]);
 
     if (hydrated && (mode === "new" || mode === "recent")) return <main className="flex h-full items-center justify-center bg-background text-sm text-stone-500">正在打开画布...</main>;
 

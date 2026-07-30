@@ -22,10 +22,22 @@ type SeedanceTask = {
     video_url?: string;
 };
 type ApiEnvelope<T> = T | { code?: number | string; data?: T | null; msg?: string; message?: string; error?: { message?: string } };
+type MiniMaxBaseResp = { status_code?: number; status_msg?: string };
+type MiniMaxVideoCreateResponse = { task_id?: string; base_resp?: MiniMaxBaseResp };
+type MiniMaxVideoQueryResponse = {
+    task_id?: string;
+    status?: "Preparing" | "Queueing" | "Processing" | "Success" | "Fail" | string;
+    file_id?: string;
+    base_resp?: MiniMaxBaseResp;
+};
+type MiniMaxFileRetrieveResponse = {
+    file?: { file_id?: number | string; download_url?: string; filename?: string; purpose?: string };
+    base_resp?: MiniMaxBaseResp;
+};
 type RequestOptions = { signal?: AbortSignal };
 
 export type VideoGenerationResult = { blob?: Blob; url?: string; mimeType?: string };
-export type VideoGenerationTask = { id: string; provider: "openai" | "seedance" | "plugin"; model: string };
+export type VideoGenerationTask = { id: string; provider: "openai" | "seedance" | "minimax" | "plugin"; model: string };
 export type VideoGenerationTaskState = { status: "pending" } | { status: "completed"; result: VideoGenerationResult } | { status: "failed"; error: string };
 
 /** Results for scripted (plugin) video models, which run their own create+poll in one shot at task creation. */
@@ -44,13 +56,13 @@ function aiHeaders(config: AiConfig, contentType?: string) {
 
 export async function requestVideoGeneration(config: AiConfig, prompt: string, references: ReferenceImage[] = [], videoReferences: ReferenceVideo[] = [], audioReferences: ReferenceAudio[] = [], options?: RequestOptions): Promise<VideoGenerationResult> {
     const task = await createVideoGenerationTask(config, prompt, references, videoReferences, audioReferences, options);
-    const delayMs = task.provider === "seedance" ? 5000 : 2500;
+    const delayMs = task.provider === "seedance" || task.provider === "minimax" ? 5000 : 2500;
     for (let attempt = 0; attempt < 120; attempt += 1) {
         if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
         const state = await pollVideoGenerationTask(config, task, options);
         if (state.status === "completed") return state.result;
         if (state.status === "failed") throw new Error(state.error);
-        if (attempt === 119) throw new Error(`${task.provider === "seedance" ? "Seedance " : ""}视频生成超时，请稍后重试`);
+        if (attempt === 119) throw new Error(`${task.provider === "seedance" ? "Seedance " : task.provider === "minimax" ? "MiniMax " : ""}视频生成超时，请稍后重试`);
         await delay(delayMs, options?.signal);
     }
     throw new Error("视频生成超时，请稍后重试");
@@ -65,6 +77,9 @@ export async function createVideoGenerationTask(config: AiConfig, prompt: string
     if (isSeedanceVideoConfig(requestConfig)) {
         return createSeedanceTask(requestConfig, selectedModel, prompt, references, videoReferences, audioReferences, options);
     }
+    if (requestConfig.apiFormat === "minimax") {
+        return createMiniMaxVideoTask(requestConfig, selectedModel, prompt, references, videoReferences, audioReferences, options);
+    }
     if (videoReferences.length || audioReferences.length) {
         throw new Error("当前视频接口不支持参考视频或参考音频，请切换到 Seedance 2.0 / 火山 Agent Plan 模型，或移除参考资产");
     }
@@ -78,6 +93,7 @@ export async function pollVideoGenerationTask(config: AiConfig, task: VideoGener
     }
     const requestConfig = resolveModelRequestConfig(config, task.model);
     assertVideoConfig(requestConfig, requestConfig.model);
+    if (task.provider === "minimax") return pollMiniMaxVideoTask(requestConfig, task, options);
     return task.provider === "seedance" ? pollSeedanceTask(requestConfig, task, options) : pollOpenAIVideoTask(requestConfig, task, options);
 }
 
@@ -208,6 +224,52 @@ async function pollSeedanceTask(config: AiConfig, task: VideoGenerationTask, opt
     }
 }
 
+async function createMiniMaxVideoTask(config: AiConfig, model: string, prompt: string, references: ReferenceImage[], videoReferences: ReferenceVideo[], audioReferences: ReferenceAudio[], options?: RequestOptions): Promise<VideoGenerationTask> {
+    if (videoReferences.length || audioReferences.length) {
+        throw new Error("MiniMax 视频接口当前只支持文本和首帧图片，请移除参考视频或参考音频");
+    }
+    const firstFrame = references[0] ? await imageToDataUrl(references[0]) : "";
+    const modelName = normalizeMiniMaxVideoModel(modelOptionName(model), Boolean(firstFrame));
+    if (!firstFrame && modelName === "MiniMax-Hailuo-2.3-Fast") throw new Error("MiniMax-Hailuo-2.3-Fast 仅支持图生视频，请连接一张首帧图片");
+    const body = {
+        model: modelName,
+        prompt: prompt.slice(0, 2000),
+        duration: normalizeMiniMaxDuration(config.videoSeconds, config.vquality),
+        resolution: normalizeMiniMaxResolution(config.vquality, modelName),
+        prompt_optimizer: true,
+        fast_pretreatment: false,
+        aigc_watermark: boolConfig(config.videoWatermark, false),
+        ...(firstFrame ? { first_frame_image: firstFrame } : {}),
+    };
+
+    try {
+        const created = (await axios.post<MiniMaxVideoCreateResponse>(aiApiUrl(config, "/video_generation"), body, { headers: aiHeaders(config, "application/json"), signal: options?.signal })).data;
+        validateMiniMaxBaseResp(created.base_resp);
+        if (!created.task_id) throw new Error("MiniMax 视频接口没有返回任务 ID");
+        return { id: created.task_id, provider: "minimax", model };
+    } catch (error) {
+        throw new Error(readAxiosError(error, "MiniMax 视频任务创建失败"));
+    }
+}
+
+async function pollMiniMaxVideoTask(config: AiConfig, task: VideoGenerationTask, options?: RequestOptions): Promise<VideoGenerationTaskState> {
+    try {
+        const queried = (await axios.get<MiniMaxVideoQueryResponse>(aiApiUrl(config, `/query/video_generation?task_id=${encodeURIComponent(task.id)}`), { headers: aiHeaders(config), signal: options?.signal })).data;
+        validateMiniMaxBaseResp(queried.base_resp);
+        const status = (queried.status || "").toLowerCase();
+        if (status === "fail" || status === "failed") return { status: "failed", error: queried.base_resp?.status_msg || "MiniMax 视频生成失败" };
+        if (status !== "success") return { status: "pending" };
+        if (!queried.file_id) return { status: "failed", error: "MiniMax 任务成功但没有返回 file_id" };
+        const retrieved = (await axios.get<MiniMaxFileRetrieveResponse>(aiApiUrl(config, `/files/retrieve?file_id=${encodeURIComponent(queried.file_id)}`), { headers: aiHeaders(config), signal: options?.signal })).data;
+        validateMiniMaxBaseResp(retrieved.base_resp);
+        const url = retrieved.file?.download_url;
+        if (!url) return { status: "failed", error: "MiniMax 文件接口没有返回下载 URL" };
+        return { status: "completed", result: await videoResultFromUrl(url, options) };
+    } catch (error) {
+        throw new Error(readAxiosError(error, "MiniMax 视频任务查询失败"));
+    }
+}
+
 function assertSeedanceVideoReferences(videoReferences: ReferenceVideo[]) {
     const error = seedanceVideoReferenceError(videoReferences);
     if (error) throw new Error(error);
@@ -294,6 +356,34 @@ function assertVideoConfig(config: AiConfig, model: string) {
     if (config.apiFormat === "gemini") throw new Error("Gemini 调用格式暂不支持视频生成，请使用 OpenAI 格式渠道");
 }
 
+function normalizeMiniMaxDuration(value: string, resolutionValue: string) {
+    return Number(value) >= 10 && !normalizeMiniMaxResolution(resolutionValue, "").startsWith("1080") ? 10 : 6;
+}
+
+function normalizeMiniMaxResolution(value: string, model: string) {
+    const normalized = value.trim().toLowerCase().replace(/p$/, "");
+    const isHailuo = model.toLowerCase().includes("hailuo");
+    if (normalized === "1080" || normalized === "high") return "1080P";
+    if (normalized === "512") return "512P";
+    if (normalized === "720" || (!isHailuo && (normalized === "auto" || normalized === "medium" || normalized === "low"))) return "720P";
+    return isHailuo ? "768P" : "720P";
+}
+
+function normalizeMiniMaxVideoModel(model: string, hasFirstFrame: boolean) {
+    if (!hasFirstFrame) {
+        if (model === "I2V-01-Director") return "T2V-01-Director";
+        if (model === "I2V-01" || model === "I2V-01-live") return "T2V-01";
+        return model;
+    }
+    if (model === "T2V-01-Director") return "I2V-01-Director";
+    if (model === "T2V-01") return "I2V-01";
+    return model;
+}
+
+function validateMiniMaxBaseResp(baseResp: MiniMaxBaseResp | undefined) {
+    if (baseResp?.status_code && baseResp.status_code !== 0) throw new Error(baseResp.status_msg || `MiniMax 请求失败：${baseResp.status_code}`);
+}
+
 function normalizeVideoSeconds(value: string) {
     const seconds = Math.floor(Number(value) || 6);
     return String(Math.max(1, Math.min(20, seconds)));
@@ -349,19 +439,10 @@ function readApiErrorMessage(value: unknown): string {
         }
     }
     if (typeof value !== "object") return "";
-    const payload = value as { msg?: unknown; message?: unknown; error?: unknown; detail?: unknown };
+    const payload = value as { msg?: unknown; message?: unknown; error?: unknown; detail?: unknown; base_resp?: MiniMaxBaseResp };
     // error 可能是字符串或含 message 的对象
-    const errorMsg =
-        typeof payload.error === "string"
-            ? payload.error
-            : (payload.error as { message?: unknown })?.message;
-    return (
-        readApiErrorMessage(payload.msg) ||
-        readApiErrorMessage(payload.message) ||
-        readApiErrorMessage(errorMsg) ||
-        readApiErrorMessage(payload.detail) ||
-        ""
-    );
+    const errorMsg = typeof payload.error === "string" ? payload.error : (payload.error as { message?: unknown })?.message;
+    return readApiErrorMessage(payload.msg) || readApiErrorMessage(payload.message) || readApiErrorMessage(errorMsg) || readApiErrorMessage(payload.detail) || readApiErrorMessage(payload.base_resp?.status_msg) || "";
 }
 
 function readAxiosError(error: unknown, fallback: string) {

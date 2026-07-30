@@ -49,7 +49,16 @@ export class CanvasSession {
 
     /** 返回 Canvas Agent 当前连接状态。 */
     health() {
-        return { ok: true, hasCanvas: Boolean(this.canvasState), clients: this.clients.size, codexBusy: this.codexState.busy };
+        return {
+            ok: true,
+            hasCanvas: Boolean(this.canvasState),
+            clients: this.clients.size,
+            clientIds: [...this.clients.keys()],
+            activeClientId: this.activeClientId || null,
+            boundClientId: this.boundClientId || null,
+            targetClientId: this.targetClientId || null,
+            codexBusy: this.codexState.busy,
+        };
     }
 
     /** 返回 Codex 是否正在执行任务。 */
