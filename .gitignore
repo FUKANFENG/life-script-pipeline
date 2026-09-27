@@ -15,3 +15,26 @@ web/public/plugins
 plugins/canvas/*/dist
 plugins/canvas/*/node_modules
 web/public/plugins
+.runtime/
+
+# Phase 1.5 real audio stays private if the example directory is used as --project.
+canvas-agent/examples/story-pipeline/turbo-smoke/
+canvas-agent/examples/story-pipeline/hd-canary/
+
+# --- life-script pipeline: local artifacts never enter the repo (2026-09-27 cleanup) ---
+outputs/
+motionstats-*.txt
+**/__pycache__/
+.pytest_cache/
+tools/local-aligner/.venv/
+tools/local-aligner/.artifacts/
+web/public/project-deliverables/
+web/public/bridge-tests/
+web/public/canvas-references/
+web/public/generated/
+web/public/production-traces/
+web/public/reference-assets/
+web/public/story-60s-import/
+web/public/story-60s-i2v-import/
+web/public/upscaled/
+web/public/*.canvas.zip

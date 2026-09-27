@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "style": {
+    "code": "STYLE01",
+    "aspect_ratio": "16:9",
+    "description": "用户确认后的统一画风描述",
+    "master": "production-assets/style-master.png"
+  },
+  "characters": [
+    {
+      "id": "P01",
+      "name": "主角",
+      "identity_lock": "固定脸型 发型 年龄 身材和辨识特征",
+      "referenceFile": "production-assets/characters/P01.png",
+      "variants": []
+    }
+  ],
+  "locations": [
+    {
+      "id": "LOC01",
+      "name": "主要房间",
+      "lock": "固定门窗 家具 光线方向和关键道具",
+      "referenceFile": "production-assets/scenes/LOC01.png"
+    }
+  ],
+  "props": []
+}
+

@@ -8,3 +8,5 @@ description: 当前项目后续值得处理的事项
 本文档用来记录当前项目后续比较值得处理的事项。
 
 - 本地 Agent 接入后续：按[本地 Agent 接入规划](/docs/progress/local-agent-integration-plan)把 Claude Code CLI Adapter 升级为 Claude Agent SDK Adapter，并完善工具队列体验。
+- 故事流水线后续：先完成 MiniMax Phase 1.5B 真实生产验收；验收通过后再基于 `resolved_timeline.json` 分别实现 Hyperframes Render Plan、Kinocut Assembly Job 和 OTIO 编译器，执行器产物保持可删除、可重建，不反向污染两层业务协议。
+- 镜头审核后续：把当前完整视频重建扩展为镜头级缓存与内容寻址资产库；图片替换后只失效对应镜头片段和最终装配，并为多人同时选版增加基于 picture-lock 哈希的冲突检测。

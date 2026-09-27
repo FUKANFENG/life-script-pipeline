@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "project_id": "replace-with-canvas-project-id",
+  "files": [
+    {
+      "shot_id": "S001",
+      "file": "frames-16x9/S001.png",
+      "mime_type": "image/png",
+      "width": 1920,
+      "height": 1080
+    }
+  ]
+}
+

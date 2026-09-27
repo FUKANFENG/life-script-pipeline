@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.0",
+  "project_id": "replace-with-project-id",
+  "title": "替换为项目标题",
+  "source_script": "script.txt",
+  "output": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "sample_rate": 48000,
+    "cover_width": 1080,
+    "cover_height": 1920
+  },
+  "tts": {
+    "provider": "minimax",
+    "draft_model": "speech-2.8-turbo",
+    "final_model": "speech-2.8-hd",
+    "voice_id": "Chinese (Mandarin)_Radio_Host",
+    "speed": 0.98,
+    "pitch": -1,
+    "volume": 1,
+    "language_boost": "Chinese"
+  },
+  "image": {
+    "provider": "xg",
+    "model": "gpt-image-2",
+    "concurrency": 6,
+    "aspect_ratio": "16:9",
+    "max_reference_images": 6
+  },
+  "subtitles": {
+    "language": "zh-CN",
+    "punctuation_free": true,
+    "prefer_single_line": true,
+    "max_cjk_chars_per_line": 16,
+    "max_lines": 2
+  },
+  "delivery": {
+    "silent_video": true,
+    "separate_audio": true,
+    "separate_subtitles": true,
+    "vertical_cover": true,
+    "social_copy": true,
+    "review_workbench": true
+  }
+}
+

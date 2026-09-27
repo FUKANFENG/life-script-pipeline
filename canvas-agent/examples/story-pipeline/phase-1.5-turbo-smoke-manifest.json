@@ -1,0 +1,70 @@
+{
+  "schema_version": "1.0",
+  "tokenizer_version": "story-tokenizer/1",
+  "project_id": "minimax-phase-1-5-turbo-smoke",
+  "title": "MiniMax Turbo 真实链路烟雾测试",
+  "output": {
+    "fps_num": 30,
+    "fps_den": 1,
+    "width": 1920,
+    "height": 1080
+  },
+  "voice_profiles": {
+    "narrator": {
+      "provider": "minimax",
+      "draft_model": "speech-2.8-turbo",
+      "final_model": "speech-2.8-hd",
+      "voice_id": "replace-with-production-voice-id",
+      "speed": 1,
+      "vol": 1,
+      "pitch": 0,
+      "emotion": null,
+      "language_boost": "Chinese",
+      "pronunciation_profile": "smoke-dictionary"
+    }
+  },
+  "pronunciation_profiles": {
+    "smoke-dictionary": {
+      "tone": [
+        "重庆/(chong2)(qing4)"
+      ]
+    }
+  },
+  "narration_segments": [
+    {
+      "id": "SMOKE001",
+      "speaker_id": "narrator",
+      "text": "重庆的夜车即将出发。林遥读完第3封信，深吸一口气，告诉自己：今天只验证声音、字幕和下载链路。",
+      "delivery": {
+        "target_pace": "medium",
+        "pause_after_ms": 0
+      }
+    }
+  ],
+  "assets": [
+    {
+      "id": "SMOKE_IMG001",
+      "type": "image",
+      "prompt": "重庆夜车站台，女孩握着一封信"
+    }
+  ],
+  "shots": [
+    {
+      "id": "SMOKE_S001",
+      "image_asset_id": "SMOKE_IMG001",
+      "narration_refs": [
+        {
+          "segment_id": "SMOKE001",
+          "range": {
+            "from_token": 0,
+            "to_token": 40
+          }
+        }
+      ],
+      "pace_intent": "calm",
+      "motion_intent": {
+        "type": "static"
+      }
+    }
+  ]
+}

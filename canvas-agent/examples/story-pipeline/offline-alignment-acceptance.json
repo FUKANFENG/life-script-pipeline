@@ -1,0 +1,76 @@
+{
+  "schema_version": "local-alignment-acceptance/1",
+  "status": "passed",
+  "completed_at": "2026-07-31T11:59:22.4594534+08:00",
+  "environment": {
+    "python": "3.11.15",
+    "whisperx": "3.8.6",
+    "torch": "2.8.0+cu128",
+    "torchaudio": "2.8.0+cu128",
+    "faster_whisper": "1.2.1",
+    "device": "NVIDIA GeForce RTX 5060",
+    "cuda": "12.8"
+  },
+  "alignment_backend": {
+    "name": "whisperx",
+    "model": "jonatasgrosman/wav2vec2-large-xlsr-53-chinese-zh-cn",
+    "model_revision": "99ccb2737be22b8bb50dcfcc39ad4d567fb90cfd",
+    "interpolate_method": "nearest",
+    "return_char_alignments": true
+  },
+  "fixture": {
+    "sample_rate": 48000,
+    "channels": 1,
+    "sample_count": 644160,
+    "duration_seconds": 13.42,
+    "audio_sha256": "d853bfb0f9c3bc8fa2d241e858af59802a522275d1ee178efd4d363788f7685d",
+    "text_sha256": "cfe5f79e62dbf4e03fd034ef2575f26d515766037d032a4b73750c07a09364fa",
+    "coverage": [
+      "chinese_punctuation",
+      "numbers",
+      "english_abbreviations",
+      "polyphonic_characters",
+      "speech_control_tags",
+      "leading_silence",
+      "trailing_silence"
+    ]
+  },
+  "forced_alignment": {
+    "stable_token_count": 34,
+    "aligned_token_count": 34,
+    "unmatched_range_count": 0,
+    "warning_count": 0,
+    "first_start_sample": 48048,
+    "last_end_sample": 642240,
+    "repeat_result_equal": true
+  },
+  "shadow_asr": {
+    "backend": "faster-whisper",
+    "model": "small",
+    "device": "cuda",
+    "language": "zh",
+    "language_probability": 1,
+    "text_similarity": 0.9347826086956522,
+    "diagnostic_only": true
+  },
+  "typescript_process_boundary": {
+    "alignment_source": "local_forced_alignment",
+    "fallback_used": true,
+    "fallback_reason": "provider_token_coverage_below_threshold",
+    "validation_score": 1,
+    "first_alignment_cache_hit": false,
+    "second_alignment_cache_hit": true,
+    "alignment_hash": "014cc462333c6e9e4ff033d3247dc5b0d690e4e5820acebdb82988d21281da19"
+  },
+  "automated_tests": {
+    "canvas_agent": {
+      "passed": 33,
+      "failed": 0
+    },
+    "local_aligner": {
+      "passed": 6,
+      "failed": 0
+    }
+  },
+  "remaining_gate": "MiniMax production canary requires a new dedicated key and a real voice_id"
+}

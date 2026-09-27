@@ -1,7 +1,7 @@
 import type { NavigateFunction } from "react-router-dom";
 
 import { fetchPrompts } from "@/services/api/prompts";
-import { uploadImage } from "@/services/image-storage";
+import { getImageBlob, uploadImage } from "@/services/image-storage";
 import { imageAspectOptions, imageQualityOptions } from "@/components/image-settings-panel";
 import { videoResolutionOptions, videoSecondOptions, videoSizeOptions } from "@/components/video-settings-panel";
 import type { CanvasAgentSnapshot } from "@/lib/canvas/canvas-agent-ops";
@@ -15,6 +15,7 @@ import { useWorkbenchAgentStore } from "@/stores/use-workbench-agent-store";
 
 export const SITE_TOOL_NAMES = [
     "canvas_list_projects",
+    "canvas_get_node_media",
     "generation_get_status",
     "workbench_image_get_config",
     "workbench_image_generate",
@@ -33,6 +34,7 @@ export function isSiteTool(name: string): name is SiteToolName {
 
 export const SITE_TOOL_LABELS: Record<SiteToolName, string> = {
     canvas_list_projects: "画布列表",
+    canvas_get_node_media: "节点媒体读取",
     generation_get_status: "生成任务状态",
     workbench_image_get_config: "生图配置",
     workbench_image_generate: "生图工作台生成",
@@ -46,12 +48,27 @@ export const SITE_TOOL_LABELS: Record<SiteToolName, string> = {
 type SiteToolInput = Record<string, unknown>;
 type SiteToolContext = { canvasSnapshot?: CanvasAgentSnapshot | null };
 type GenerationStatus = "idle" | "queued" | "running" | "succeeded" | "failed";
-type GenerationStatusItem = { id: string; source: "canvas" | "image" | "video"; status: GenerationStatus; kind?: string; title?: string; prompt?: string; projectId?: string; createdAt?: string; updatedAt?: string; successCount?: number; failCount?: number; error?: string };
+type GenerationStatusItem = {
+    id: string;
+    source: "canvas" | "image" | "video";
+    status: GenerationStatus;
+    kind?: string;
+    title?: string;
+    prompt?: string;
+    projectId?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    successCount?: number;
+    failCount?: number;
+    error?: string;
+};
 
 export async function runSiteTool(name: SiteToolName, input: SiteToolInput, navigate: NavigateFunction, context: SiteToolContext = {}): Promise<unknown> {
     switch (name) {
         case "canvas_list_projects":
             return listCanvasProjects(input);
+        case "canvas_get_node_media":
+            return getCanvasNodeMedia(input, context.canvasSnapshot);
         case "generation_get_status":
             return getGenerationStatus(input, context.canvasSnapshot);
         case "workbench_image_get_config":
@@ -73,6 +90,55 @@ export async function runSiteTool(name: SiteToolName, input: SiteToolInput, navi
     }
 }
 
+async function getCanvasNodeMedia(input: SiteToolInput, canvasSnapshot?: CanvasAgentSnapshot | null) {
+    if (!canvasSnapshot) throw new Error("当前没有已连接画布");
+    const nodeIds = Array.isArray(input.nodeIds) ? input.nodeIds.filter((id): id is string => typeof id === "string") : [];
+    const items = [];
+    const missing = [];
+
+    for (const nodeId of nodeIds) {
+        const node = canvasSnapshot.nodes.find((candidate) => candidate.id === nodeId);
+        if (!node) {
+            missing.push({ nodeId, reason: "节点不存在" });
+            continue;
+        }
+        if (node.type !== "image") {
+            missing.push({ nodeId, reason: `节点类型不是图片：${node.type}` });
+            continue;
+        }
+        const storageKey = node.metadata?.storageKey;
+        if (!storageKey) {
+            missing.push({ nodeId, reason: "图片节点没有 storageKey" });
+            continue;
+        }
+        const blob = await getImageBlob(storageKey);
+        if (!blob) {
+            missing.push({ nodeId, reason: "浏览器本地存储中找不到图片文件" });
+            continue;
+        }
+        items.push({
+            nodeId,
+            storageKey,
+            mimeType: blob.type || node.metadata?.mimeType || "application/octet-stream",
+            bytes: blob.size,
+            width: node.metadata?.naturalWidth || node.width,
+            height: node.metadata?.naturalHeight || node.height,
+            base64: await blobToBase64(blob),
+        });
+    }
+
+    return { projectId: canvasSnapshot.projectId, items, missing };
+}
+
+async function blobToBase64(blob: Blob) {
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const chunks: string[] = [];
+    for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+        chunks.push(String.fromCharCode(...bytes.subarray(offset, offset + 0x8000)));
+    }
+    return btoa(chunks.join(""));
+}
+
 function getGenerationStatus(input: SiteToolInput, canvasSnapshot?: CanvasAgentSnapshot | null) {
     const scope = input.scope === "canvas" || input.scope === "image" || input.scope === "video" ? input.scope : "all";
     const taskId = typeof input.taskId === "string" ? input.taskId : "";
@@ -88,7 +154,16 @@ function getGenerationStatus(input: SiteToolInput, canvasSnapshot?: CanvasAgentS
             if (!status || (nodeIds.size && !nodeIds.has(node.id))) return;
             const metadata = node.metadata || {};
             if (!nodeIds.size && node.type !== "config" && status !== "running" && status !== "failed" && !metadata.generationMode && !metadata.generationType && !metadata.model) return;
-            tasks.push({ id: node.id, source: "canvas", status, kind: metadata.generationMode || node.type, title: node.title, prompt: compactPrompt(metadata.prompt || metadata.composerContent), projectId: canvasSnapshot.projectId, error: metadata.errorDetails });
+            tasks.push({
+                id: node.id,
+                source: "canvas",
+                status,
+                kind: metadata.generationMode || node.type,
+                title: node.title,
+                prompt: compactPrompt(metadata.prompt || metadata.composerContent),
+                projectId: canvasSnapshot.projectId,
+                error: metadata.errorDetails,
+            });
         });
     }
 
@@ -126,7 +201,9 @@ function compactPrompt(prompt: unknown) {
 function listCanvasProjects(input: SiteToolInput) {
     const { projects, hydrated } = useCanvasStore.getState();
     if (!hydrated) throw new Error("画布还在加载中，请稍后重试");
-    const keyword = String(input.keyword || "").trim().toLowerCase();
+    const keyword = String(input.keyword || "")
+        .trim()
+        .toLowerCase();
     const filtered = keyword ? projects.filter((project) => project.title.toLowerCase().includes(keyword)) : projects;
     const { page, pageSize, start, end } = paginate(input, filtered.length, 20);
     const items = filtered.slice(start, end).map((project) => ({
@@ -254,7 +331,9 @@ function listAssets(input: SiteToolInput) {
     const { assets, hydrated } = useAssetStore.getState();
     if (!hydrated) throw new Error("资产还在加载中，请稍后重试");
     const kind = input.kind === "text" || input.kind === "image" || input.kind === "video" ? input.kind : "all";
-    const keyword = String(input.keyword || "").trim().toLowerCase();
+    const keyword = String(input.keyword || "")
+        .trim()
+        .toLowerCase();
     const filtered = assets.filter((asset) => {
         if (kind !== "all" && asset.kind !== kind) return false;
         if (!keyword) return true;
@@ -299,7 +378,15 @@ async function addAsset(input: SiteToolInput) {
         } catch {
             throw new Error("无法读取该图片地址，请改用 dataURL 或可跨域访问的图片链接");
         }
-        const id = store.addAsset({ kind: "image", title, coverUrl: stored.url, tags, source, note, data: { dataUrl: stored.url, storageKey: stored.storageKey, width: stored.width, height: stored.height, bytes: stored.bytes, mimeType: stored.mimeType } });
+        const id = store.addAsset({
+            kind: "image",
+            title,
+            coverUrl: stored.url,
+            tags,
+            source,
+            note,
+            data: { dataUrl: stored.url, storageKey: stored.storageKey, width: stored.width, height: stored.height, bytes: stored.bytes, mimeType: stored.mimeType },
+        });
         return { ok: true, id, kind: "image" };
     }
     throw new Error("assets_add 仅支持 kind=text 或 kind=image");

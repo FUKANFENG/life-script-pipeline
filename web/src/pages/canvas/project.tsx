@@ -114,6 +114,11 @@ type CanvasGenerationRequest = {
     controller: AbortController;
 };
 
+type CanvasProductionTrace = {
+    nodes?: CanvasNodeData[];
+    connections?: CanvasConnection[];
+};
+
 const VIDEO_NODE_MAX_WIDTH = 420;
 const VIDEO_NODE_MAX_HEIGHT = 420;
 // 稳定的空引用数组:避免每次渲染 `... || []` 产生新数组引用而击穿 CanvasNode 的 React.memo
@@ -166,6 +171,7 @@ function InfiniteCanvasPage() {
     const lastHistoryRef = useRef<CanvasHistoryEntry | null>(null);
     const historyCommitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const viewportSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const productionTraceLoadedRef = useRef("");
     const applyingHistoryRef = useRef(false);
     const historyPausedRef = useRef(false);
     const didInitialCenterRef = useRef(false);
@@ -357,6 +363,40 @@ function InfiniteCanvasPage() {
         if (!projectLoaded) return;
         setAgentState({ activeThreadId: "", messages: [], tokenUsage: null, pendingTool: null });
     }, [projectId, projectLoaded, setAgentState]);
+
+    useEffect(() => {
+        if (!projectLoaded || productionTraceLoadedRef.current === projectId) return;
+        productionTraceLoadedRef.current = projectId;
+        let cancelled = false;
+        const load = async () => {
+            try {
+                const response = await fetch(`/production-traces/${encodeURIComponent(projectId)}.json`, { cache: "no-store" });
+                if (response.status === 404) return;
+                if (!response.ok) throw new Error(`Production trace request failed (${response.status})`);
+                const trace = (await response.json()) as CanvasProductionTrace;
+                if (cancelled) return;
+                const traceNodes = Array.isArray(trace.nodes) ? trace.nodes.filter((node) => node && typeof node.id === "string") : [];
+                const traceConnections = Array.isArray(trace.connections)
+                    ? trace.connections.filter((connection) => connection && typeof connection.id === "string" && typeof connection.fromNodeId === "string" && typeof connection.toNodeId === "string")
+                    : [];
+                if (!traceNodes.length) return;
+                setNodes((previous) => {
+                    const existing = new Set(previous.map((node) => node.id));
+                    return [...previous, ...traceNodes.filter((node) => !existing.has(node.id))];
+                });
+                setConnections((previous) => {
+                    const existing = new Set(previous.map((connection) => connection.id));
+                    return [...previous, ...traceConnections.filter((connection) => !existing.has(connection.id))];
+                });
+            } catch {
+                // Production traces are optional local workflow artifacts.
+            }
+        };
+        void load();
+        return () => {
+            cancelled = true;
+        };
+    }, [projectId, projectLoaded]);
 
     useEffect(() => {
         if (!projectLoaded || !["new", "recent", "choose"].includes(searchParams.get("mode") || "")) return;
@@ -2799,6 +2839,7 @@ function InfiniteCanvasPage() {
                     onExportProject={exportCurrentProject}
                     onImportImage={() => handleUploadRequest()}
                     onOpenPlugins={() => setPluginManagerOpen(true)}
+                    onOpenReview={() => navigate(`/canvas/${projectId}/review`)}
                     onUndo={undoCanvas}
                     onRedo={redoCanvas}
                     agentOpen={agentPanelOpen}

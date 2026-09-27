@@ -1,0 +1,189 @@
+{
+  "schema_version": "1.0",
+  "tokenizer_version": "story-tokenizer/1",
+  "project_id": "minimax-phase-1-5-canary",
+  "title": "最后一班夜车",
+  "output": {
+    "fps_num": 30,
+    "fps_den": 1,
+    "width": 1920,
+    "height": 1080
+  },
+  "voice_profiles": {
+    "narrator": {
+      "provider": "minimax",
+      "draft_model": "speech-2.8-turbo",
+      "final_model": "speech-2.8-hd",
+      "voice_id": "replace-with-production-voice-id",
+      "speed": 1,
+      "vol": 1,
+      "pitch": 0,
+      "emotion": null,
+      "language_boost": "Chinese",
+      "pronunciation_profile": "canary-dictionary"
+    }
+  },
+  "pronunciation_profiles": {
+    "canary-dictionary": {
+      "tone": [
+        "重庆/(chong2)(qing4)",
+        "银行/(yin2)(hang2)",
+        "重山/(chong2)(shan1)"
+      ]
+    }
+  },
+  "narration_segments": [
+    {
+      "id": "VO001",
+      "speaker_id": "narrator",
+      "text": "重庆的银行门口，林遥握着第3封来自KinoCut的信。(breath)雨水顺着屋檐落下，她想起母亲那句话：重要的决定，从不会等人准备好。<#0.5#>她转身跑向最后一班夜车。",
+      "delivery": {
+        "target_pace": "medium",
+        "pause_after_ms": 300
+      }
+    },
+    {
+      "id": "VO002",
+      "speaker_id": "narrator",
+      "text": "2026年7月31日23点40分，列车驶过重山。(sighs)车窗里的倒影慢慢平静。她终于明白，离开不是背叛，告别也不是终点。当清晨第一束光照进车厢，她已经知道下一站要去哪里。",
+      "delivery": {
+        "target_pace": "slow",
+        "emotion": "sad",
+        "pause_after_ms": 0
+      }
+    }
+  ],
+  "assets": [
+    {
+      "id": "IMG001",
+      "type": "image",
+      "prompt": "重庆雨夜，银行门口，女孩握着一封信"
+    },
+    {
+      "id": "IMG002",
+      "type": "image",
+      "prompt": "雨水、信纸和女孩犹豫的手部特写"
+    },
+    {
+      "id": "IMG003",
+      "type": "image",
+      "prompt": "女孩奔向即将关闭车门的最后一班夜车"
+    },
+    {
+      "id": "IMG004",
+      "type": "image",
+      "prompt": "列车穿过重山，车窗倒影由慌乱变得平静"
+    },
+    {
+      "id": "IMG005",
+      "type": "image",
+      "prompt": "清晨第一束光照进车厢，女孩望向前方"
+    }
+  ],
+  "shots": [
+    {
+      "id": "S001",
+      "image_asset_id": "IMG001",
+      "narration_refs": [
+        {
+          "segment_id": "VO001",
+          "range": {
+            "from_token": 0,
+            "to_token": 18
+          }
+        }
+      ],
+      "pace_intent": "calm",
+      "motion_intent": {
+        "type": "slow_push_in",
+        "subject_anchor": {
+          "x": 0.52,
+          "y": 0.44
+        }
+      }
+    },
+    {
+      "id": "S002",
+      "image_asset_id": "IMG002",
+      "narration_refs": [
+        {
+          "segment_id": "VO001",
+          "range": {
+            "from_token": 16,
+            "to_token": 38
+          }
+        }
+      ],
+      "pace_intent": "calm",
+      "motion_intent": {
+        "type": "custom_crop_interpolation"
+      }
+    },
+    {
+      "id": "S003",
+      "image_asset_id": "IMG003",
+      "narration_refs": [
+        {
+          "segment_id": "VO001",
+          "range": {
+            "from_token": 38,
+            "to_token": 52
+          }
+        },
+        {
+          "segment_id": "VO002",
+          "range": {
+            "from_token": 0,
+            "to_token": 12
+          }
+        }
+      ],
+      "pace_intent": "medium",
+      "motion_intent": {
+        "type": "pan_right"
+      },
+      "transition_out": {
+        "type": "dissolve",
+        "duration_frames": 15
+      }
+    },
+    {
+      "id": "S004",
+      "image_asset_id": "IMG004",
+      "narration_refs": [
+        {
+          "segment_id": "VO002",
+          "range": {
+            "from_token": 12,
+            "to_token": 40
+          }
+        }
+      ],
+      "pace_intent": "very_slow",
+      "motion_intent": {
+        "type": "pan_left",
+        "subject_anchor": {
+          "x": 0.7,
+          "y": 0.48
+        }
+      }
+    },
+    {
+      "id": "S005",
+      "image_asset_id": "IMG005",
+      "narration_refs": [
+        {
+          "segment_id": "VO002",
+          "range": {
+            "from_token": 40,
+            "to_token": 60
+          }
+        }
+      ],
+      "pace_intent": "calm",
+      "motion_intent": {
+        "type": "slow_pull_out"
+      }
+    }
+  ]
+}

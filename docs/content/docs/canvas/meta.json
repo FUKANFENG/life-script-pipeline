@@ -4,6 +4,7 @@
   "defaultOpen": true,
   "pages": [
     "canvas-node-manual",
-    "canvas-shortcuts"
+    "canvas-shortcuts",
+    "shot-review"
   ]
 }

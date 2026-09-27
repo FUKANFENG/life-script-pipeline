@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { BookOpen, Bot, Download, Home, Images, Menu, PanelLeftClose, PanelLeftOpen, Plus, Redo2, Trash2, Undo2, Upload } from "lucide-react";
+import { BookOpen, Bot, ClipboardCheck, Download, Home, Images, Menu, PanelLeftClose, PanelLeftOpen, Plus, Redo2, Trash2, Undo2, Upload } from "lucide-react";
 import { Button, Dropdown, Modal, Tooltip } from "antd";
 
 import { UserStatusActions } from "@/components/layout/user-status-actions";
@@ -25,6 +25,7 @@ export function CanvasTopBar({
     onExportProject,
     onImportImage,
     onOpenPlugins,
+    onOpenReview,
     onUndo,
     onRedo,
     agentOpen,
@@ -47,6 +48,7 @@ export function CanvasTopBar({
     onExportProject: () => void;
     onImportImage: () => void;
     onOpenPlugins: () => void;
+    onOpenReview?: () => void;
     onUndo: () => void;
     onRedo: () => void;
     agentOpen: boolean;
@@ -137,6 +139,11 @@ export function CanvasTopBar({
                 </div>
 
                 <div className="pointer-events-auto flex items-center gap-1.5">
+                    {onOpenReview ? (
+                        <Button type="text" className="!h-10 !rounded-xl !px-3 !font-medium" style={{ background: theme.toolbar.panel, color: theme.node.text }} icon={<ClipboardCheck className="size-4" />} onClick={onOpenReview}>
+                            审核
+                        </Button>
+                    ) : null}
                     <UserStatusActions variant="canvas" onOpenShortcuts={() => setShortcutsOpen(true)} onOpenPlugins={onOpenPlugins} />
                     <span className="h-6 w-px" style={{ background: theme.toolbar.border }} />
                     <Button

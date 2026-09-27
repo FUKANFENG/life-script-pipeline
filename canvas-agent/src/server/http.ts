@@ -8,16 +8,19 @@ import { archiveCodexThread, interruptCodexTurn, isRecoverableThreadError, listC
 import type { AgentAttachment, AgentPermissionMode } from "../agent/types.js";
 import { CanvasSession } from "../canvas/session.js";
 import { DEFAULT_PORT, ensureSiteWorkspace, loadConfig, saveConfig, updateSiteWorkspace, type CanvasAgentConfig } from "../config.js";
+import { StoryReviewStore } from "../story-review/store.js";
 import { logger } from "../utils/logger.js";
 
 /** 启动仅监听本机的 Canvas Agent HTTP 服务。 */
 export function startHttpServer() {
     const config = loadConfig(true);
     const port = Number(process.env.PORT) || Number(new URL(config.url).port) || DEFAULT_PORT;
+    const host = process.env.CANVAS_AGENT_HOST || "127.0.0.1";
     config.url = `http://127.0.0.1:${port}`;
     saveConfig(config);
 
     const session = new CanvasSession();
+    const storyReview = new StoryReviewStore(ensureSiteWorkspace(config).workspacePath);
     /** 将 Agent 事件广播到所属线程或全部网页。 */
     const emit = (type: string, payload: unknown) => {
         const data = payload && typeof payload === "object" && !Array.isArray(payload) ? payload as Record<string, unknown> : { value: payload };
@@ -89,6 +92,56 @@ export function startHttpServer() {
         if (!file.isFile()) return res.status(400).json({ ok: false, error: "图片文件无效" });
         res.setHeader("Cache-Control", "no-store");
         res.type(path.extname(filePath)).send(await readFile(filePath));
+    }));
+    app.get("/story-review/projects/:projectId", route(async (req, res) => {
+        res.json({ ok: true, project: await storyReview.project(routeParam(req.params.projectId)) });
+    }));
+    app.get("/story-review/projects/:projectId/shots/:shotId/versions/:versionId/image", route(async (req, res) => {
+        const file = await storyReview.image(routeParam(req.params.projectId), routeParam(req.params.shotId), routeParam(req.params.versionId));
+        res.setHeader("Cache-Control", "private, max-age=31536000, immutable");
+        res.type(path.extname(file)).send(await readFile(file));
+    }));
+    app.get("/story-review/projects/:projectId/references/:referenceId/image", route(async (req, res) => {
+        const file = await storyReview.referenceImage(routeParam(req.params.projectId), routeParam(req.params.referenceId));
+        res.setHeader("Cache-Control", "no-cache");
+        res.type(path.extname(file)).send(await readFile(file));
+    }));
+    app.get("/story-review/projects/:projectId/shots/:shotId/references/:referenceId/image", route(async (req, res) => {
+        const file = await storyReview.customReferenceImage(routeParam(req.params.projectId), routeParam(req.params.shotId), routeParam(req.params.referenceId));
+        res.setHeader("Cache-Control", "private, max-age=31536000, immutable");
+        res.type(path.extname(file)).send(await readFile(file));
+    }));
+    app.post("/story-review/projects/:projectId/shots/:shotId/references", route(async (req, res) => {
+        res.json(await storyReview.addCustomReference(routeParam(req.params.projectId), routeParam(req.params.shotId), req.body || {}));
+    }));
+    app.post("/story-review/projects/:projectId/shots/:shotId/references/:referenceId/remove", route(async (req, res) => {
+        res.json(await storyReview.removeCustomReference(routeParam(req.params.projectId), routeParam(req.params.shotId), routeParam(req.params.referenceId)));
+    }));
+    app.post("/story-review/projects/:projectId/shots/:shotId/versions", route(async (req, res) => {
+        res.json(await storyReview.addVersion(routeParam(req.params.projectId), routeParam(req.params.shotId), req.body || {}));
+    }));
+    app.post("/story-review/projects/:projectId/shots/:shotId/select", route(async (req, res) => {
+        res.json(await storyReview.selectVersion(routeParam(req.params.projectId), routeParam(req.params.shotId), String(req.body?.versionId || "")));
+    }));
+    app.post("/story-review/projects/:projectId/shots/:shotId/review", route(async (req, res) => {
+        res.json(await storyReview.reviewShot(routeParam(req.params.projectId), routeParam(req.params.shotId), req.body || {}));
+    }));
+    app.post("/story-review/projects/:projectId/exports", route(async (req, res) => {
+        res.status(202).json({ ok: true, job: await storyReview.startExport(routeParam(req.params.projectId)) });
+    }));
+    app.get("/story-review/projects/:projectId/exports/:exportId", route(async (req, res) => {
+        res.json({ ok: true, job: storyReview.exportJob(routeParam(req.params.projectId), routeParam(req.params.exportId)) });
+    }));
+    app.get("/story-review/projects/:projectId/exports/:exportId/files/:kind", route(async (req, res) => {
+        const kind = routeParam(req.params.kind);
+        if (!["video", "audio", "subtitles"].includes(kind)) return res.status(400).json({ ok: false, error: "导出文件类型无效" });
+        const file = await storyReview.exportFile(routeParam(req.params.projectId), routeParam(req.params.exportId), kind);
+        res.download(file);
+    }));
+    app.post("/story-review/projects/:projectId/exports/:exportId/reveal", route(async (req, res) => {
+        const directory = await storyReview.exportDirectory(routeParam(req.params.projectId), routeParam(req.params.exportId));
+        await revealLocalFile(directory, true);
+        res.json({ ok: true, directory });
     }));
     app.post("/api/tools", route(async (req, res) => res.json({ ok: true, result: await session.callTool(req.body?.name, req.body?.input || {}) })));
     app.get("/agent/codex/workspace", (_req, res) => {
@@ -221,9 +274,10 @@ export function startHttpServer() {
         res.status(500).json({ ok: false, error: error.message });
     });
 
-    app.listen(port, "127.0.0.1", () => {
+    app.listen(port, host, () => {
         console.log("Infinite Canvas Agent");
         console.log(`Local URL: ${config.url}`);
+        if (host !== "127.0.0.1") console.log(`LAN listening: ${host}:${port}`);
         console.log(`Connect token: ${config.token}`);
         console.log("Codex MCP is not installed by this command.");
         console.log("Optional MCP add: codex mcp add infinite-canvas -- npx -y @basketikun/canvas-agent mcp");

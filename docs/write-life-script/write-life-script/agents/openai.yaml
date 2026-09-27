@@ -1,0 +1,4 @@
+interface:
+  display_name: "人生副本写稿"
+  short_description: "把原始素材改写成可配音、可分镜、可验收的第二人称人生故事"
+  default_prompt: "Use $write-life-script to turn this source material into a complete second-person life-story script with planning and QA files."

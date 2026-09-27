@@ -10,12 +10,13 @@
   "files": [
     "dist",
     "agent-instructions.md",
+    "render-story-review.py",
     "README.md"
   ],
   "scripts": {
     "dev": "tsx src/index.ts",
     "debug": "tsx src/index.ts --debug",
-    "test": "tsx --test src/canvas/session.test.ts",
+    "test": "tsx --test src/canvas/session.test.ts src/story-pipeline/story-pipeline.test.ts src/story-review/store.test.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "prepack": "npm run build"

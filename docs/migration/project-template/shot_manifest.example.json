@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "project": "示例项目",
+  "timeline": {
+    "total_frames": 90,
+    "total_samples": 144000,
+    "total_seconds": 3
+  },
+  "shots": [
+    {
+      "id": "S001",
+      "chapter_id": "C01",
+      "scene_id": "SC01",
+      "location_id": "LOC01",
+      "characters": ["P01"],
+      "function": "开场建立人物和环境",
+      "visual": "主角推门进入有晨光的房间",
+      "composition": "中景 35mm 平视",
+      "prompt": "结合画风 人物 场景和前后文填写完整提示词",
+      "narration": {
+        "vo": "VO001",
+        "source_excerpt": "这是示例旁白",
+        "start_sample": 0,
+        "end_sample": 144000,
+        "start_seconds": 0,
+        "end_seconds": 3,
+        "duration_seconds": 3,
+        "start_frame": 0,
+        "end_frame": 90
+      }
+    }
+  ]
+}
+

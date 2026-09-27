@@ -155,3 +155,9 @@ claude mcp add --scope user --transport stdio infinite-canvas -- node /path/to/i
 ```
 
 Canvas Agent 调用 Claude Code 时会默认带上 `--allowedTools mcp__infinite-canvas__*`，画布写操作仍由网页侧边栏确认。
+
+## Story Pipeline
+
+Canvas Agent 内置第一阶段故事生产流水线，可将创作层 `story_manifest.json` 通过 MiniMax HTTP TTS、48 kHz 音频归一化、独立 Alignment Cache 和 WhisperX 本地对齐回退，解析为机器维护的 `resolved_timeline.json`。
+
+协议示例、环境变量、缓存结构和命令见 [`examples/story-pipeline/README.md`](examples/story-pipeline/README.md)。

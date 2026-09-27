@@ -1,0 +1,21 @@
+{
+  "schema_version": "1",
+  "whisperx": {
+    "package_version": "3.8.6",
+    "language": "zh",
+    "alignment_model": {
+      "repo_id": "jonatasgrosman/wav2vec2-large-xlsr-53-chinese-zh-cn",
+      "revision": "99ccb2737be22b8bb50dcfcc39ad4d567fb90cfd"
+    },
+    "interpolate_method": "nearest",
+    "return_char_alignments": true
+  },
+  "faster_whisper_shadow": {
+    "model": "small",
+    "language": "zh",
+    "beam_size": 5,
+    "vad_filter": true,
+    "compute_type_cuda": "int8_float16",
+    "compute_type_cpu": "int8"
+  }
+}
