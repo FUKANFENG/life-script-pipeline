@@ -8,7 +8,7 @@
 
 需要 Git、[Docker Engine / Docker Desktop](https://docs.docker.com/get-started/get-docker/) 和 Docker Compose v2.20+，使用 Linux 容器。无需在宿主机安装 Node、Python、FFmpeg 或 WhisperX。默认构建 CPU 版，包含 Web、Canvas Agent、Codex CLI、音视频运行时及本地对齐器。
 
-仓库为 Private，目标电脑需先完成 GitHub 身份认证并具有仓库读取权限。
+仓库已公开，可直接克隆；使用模型服务时仍需配置自己的 API 凭据。
 
 ```powershell
 git clone https://github.com/FUKANFENG/life-script-pipeline.git
