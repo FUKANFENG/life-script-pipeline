@@ -1,0 +1,60 @@
+# syntax=docker/dockerfile:1
+FROM oven/bun:1.3.13 AS bun
+FROM ghcr.io/astral-sh/uv:0.8.13 AS uv
+FROM node:22-bookworm-slim AS agent-build
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
+WORKDIR /build/canvas-agent
+COPY canvas-agent/package.json canvas-agent/bun.lock ./
+RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lockfile
+COPY canvas-agent/tsconfig.json ./
+COPY canvas-agent/src ./src
+RUN npm run build && bun install --production --frozen-lockfile
+
+FROM node:22-bookworm-slim
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 python3-venv ffmpeg git ca-certificates libgomp1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 10001 canvas
+WORKDIR /app
+COPY docker/requirements-media.txt ./docker/requirements-media.txt
+RUN python3 -m venv /opt/story-runtime \
+    && /opt/story-runtime/bin/pip install --no-cache-dir -r docker/requirements-media.txt
+
+# Isolate Torch/WhisperX from the media environment; CPU and CUDA use the same source.
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+RUN python3 -m venv /opt/local-aligner \
+    && /opt/local-aligner/bin/pip install --no-cache-dir pip==25.2 \
+    && /opt/local-aligner/bin/pip install --no-cache-dir torch==2.8.0 torchaudio==2.8.0 torchvision==0.23.0 --index-url ${TORCH_INDEX_URL} --extra-index-url https://pypi.org/simple
+COPY tools/local-aligner ./tools/local-aligner
+COPY docker/constraints-aligner.txt ./docker/constraints-aligner.txt
+COPY --from=uv /uv /usr/local/bin/uv
+# Editable installation keeps models.lock.json next to the Python package sources.
+RUN --mount=type=cache,target=/root/.cache/uv uv pip install --python /opt/local-aligner/bin/python -c docker/constraints-aligner.txt -e ./tools/local-aligner
+COPY --from=agent-build /build/canvas-agent/dist ./canvas-agent/dist
+COPY --from=agent-build /build/canvas-agent/node_modules ./canvas-agent/node_modules
+COPY canvas-agent/package.json canvas-agent/agent-instructions.md canvas-agent/render-story-review.py ./canvas-agent/
+COPY tools/story-demo ./tools/story-demo
+COPY tools/rebirth-story ./tools/rebirth-story
+COPY docs/migration ./docs/migration
+COPY docs/write-life-script ./docs/write-life-script
+COPY docs/DOCKER.md ./docs/DOCKER.md
+COPY README.md PIPELINE.md ./
+COPY docker ./docker
+RUN ln -s /app/canvas-agent/node_modules/@openai/codex/bin/codex.js /usr/local/bin/codex \
+    && mkdir -p /workspace /home/canvas/.infinite-canvas /home/canvas/.codex /home/canvas/.cache \
+    && chown -R canvas:canvas /workspace /home/canvas
+ENV PATH="/opt/story-runtime/bin:/opt/local-aligner/bin:${PATH}" \
+    PYTHON=/opt/story-runtime/bin/python \
+    FFMPEG_PATH=/usr/bin/ffmpeg \
+    STORY_ALIGNER_EXECUTABLE=/opt/local-aligner/bin/local-aligner \
+    INFINITE_CANVAS_WORKSPACE=/workspace \
+    LOCAL_ALIGNER_DEVICE=cpu \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+USER canvas
+WORKDIR /workspace
+EXPOSE 17371
+HEALTHCHECK --interval=20s --timeout=5s --start-period=20s --retries=3 \
+    CMD ["node", "-e", "fetch('http://127.0.0.1:17371/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+ENTRYPOINT ["python", "/app/docker/agent-entrypoint.py"]
+CMD ["node", "/app/canvas-agent/dist/index.js"]

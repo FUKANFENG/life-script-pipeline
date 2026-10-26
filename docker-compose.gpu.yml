@@ -1,0 +1,17 @@
+services:
+  agent:
+    image: life-script-agent:cuda
+    build:
+      args:
+        TORCH_INDEX_URL: https://download.pytorch.org/whl/cu128
+    environment:
+      LOCAL_ALIGNER_DEVICE: cuda
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      LD_LIBRARY_PATH: /opt/local-aligner/lib/python3.11/site-packages/nvidia/cudnn/lib:/opt/local-aligner/lib/python3.11/site-packages/nvidia/cublas/lib:/opt/local-aligner/lib/python3.11/site-packages/nvidia/cuda_runtime/lib
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

@@ -32,6 +32,11 @@ export function saveConfig(config: CanvasAgentConfig) {
 
 /** 确保站点级 Codex 工作空间存在并已初始化。 */
 export function ensureSiteWorkspace(config: CanvasAgentConfig) {
+    const configuredPath = process.env.INFINITE_CANVAS_WORKSPACE?.trim();
+    if (configuredPath && config.workspace?.workspacePath !== resolveWorkspacePath(configuredPath)) {
+        config.workspace = { workspacePath: resolveWorkspacePath(configuredPath) };
+        saveConfig(config);
+    }
     const current = config.workspace;
     if (current?.workspacePath) {
         const workspacePath = resolveWorkspacePath(current.workspacePath);

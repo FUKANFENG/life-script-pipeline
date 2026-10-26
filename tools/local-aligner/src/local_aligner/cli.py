@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -20,7 +21,7 @@ def main() -> None:
     doctor_parser = commands.add_parser("doctor")
     doctor_parser.add_argument("--json", action="store_true")
     doctor_parser.add_argument("--load-model", action="store_true")
-    doctor_parser.add_argument("--device", default="cuda")
+    doctor_parser.add_argument("--device", default=os.environ.get("LOCAL_ALIGNER_DEVICE", "cuda"))
 
     for name in ["align", "shadow-asr"]:
         command_parser = commands.add_parser(name)

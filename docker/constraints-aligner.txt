@@ -1,0 +1,20 @@
+# Runtime versions from tools/local-aligner/uv.lock; Torch wheels vary by CPU/CUDA.
+av==18.0.0
+ctranslate2==4.8.1
+faster-whisper==1.2.1
+huggingface-hub==0.36.2
+lightning==2.6.5
+numpy==2.4.6
+pyannote-audio==4.0.7
+pyannote-core==6.0.1
+pyannote-database==6.1.1
+pyannote-metrics==4.1
+pyannote-pipeline==4.0.0
+pydantic==2.13.4
+pytorch-lightning==2.6.5
+scipy==1.17.1
+tokenizers==0.22.2
+torchcodec==0.7.0
+torchmetrics==1.9.0
+transformers==4.57.6
+triton==3.4.0

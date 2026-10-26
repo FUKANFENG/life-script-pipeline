@@ -1,143 +1,82 @@
-<p align="center">
-  <img src="web/public/logo.svg" width="96" alt="infinite-canvas logo">
-</p>
+# 人生副本 · Infinite Canvas 故事生产工作流
 
-<h1 align="center">无限画布 (infinite-canvas)</h1>
+基于 [basketikun/infinite-canvas](https://github.com/basketikun/infinite-canvas) 的定制项目。把剧本、画风和人物参考交给 Codex，先确认时长与分镜计划，再通过画布、XG 生图、MiniMax 配音和 WhisperX 对齐制作图文故事。
 
-<p align="center">
-  <a href="https://linux.do/"><img src="https://img.shields.io/badge/Linux.do-Community-2b6de8?style=flat-square" alt="Linux.do"></a>
-  <a href="https://render.com/deploy?repo=https://github.com/basketikun/infinite-canvas"><img src="https://img.shields.io/badge/Render-Deploy-46e3b7?style=flat-square&logo=render&logoColor=111111" alt="Deploy to Render"></a>
-  <a href="https://github.com/basketikun/infinite-canvas"><img src="https://img.shields.io/github/stars/basketikun/infinite-canvas?style=flat-square&logo=github" alt="GitHub stars"></a>
-  <a href="https://github.com/basketikun/infinite-canvas/tags"><img src="https://img.shields.io/github/v/tag/basketikun/infinite-canvas?style=flat-square&label=version" alt="Version"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-f97316?style=flat-square" alt="License"></a>
-  <a href="https://vite.dev/"><img src="https://img.shields.io/badge/Vite-7-646cff?style=flat-square&logo=vite&logoColor=white" alt="Vite"></a>
-  <a href="https://reactrouter.com/"><img src="https://img.shields.io/badge/React_Router-7-ca4245?style=flat-square&logo=reactrouter&logoColor=white" alt="React Router"></a>
-</p>
+默认交付：**16:9 静音无字幕 MP4、独立完整 WAV、干净的时间轴 SRT、镜头审核工作台、9:16 封面、发布标题与简介及 5 个话题**。审核台支持携带人物/场景参考重新生成、人工换图和版本回滚，换图保持时间戳不变。
 
-<p align="center">
-<a href="https://trendshift.io/repositories/50077?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-50077" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/50077" alt="basketikun%2Finfinite-canvas | Trendshift" width="250" height="55"/></a>
-</p>
+## Docker 快速开始
 
-<p align="center">
-  <a href="docs/content/docs/overview/quick-start.mdx">快速开始</a> · <a href="docs/content/docs/overview/features.mdx">功能介绍</a> · <a href="docs/content/docs/overview/render.mdx">Render 部署</a> · <a href="docs/content/docs/overview/docker.mdx">Docker 部署</a> · <a href="docs/content/docs/canvas/canvas-node-manual.mdx">画布节点操作手册</a> · <a href="docs/content/docs/canvas/canvas-shortcuts.mdx">画布快捷键</a> · <a href="CLA.md">贡献者协议</a> · <a href="SECURITY.md">漏洞提交</a> · <a href="docs/content/docs/progress/todo.mdx">待办事项</a> · <a href="canvas-agent/README.md">本地 Canvas Agent</a> · <a href="plugins/infinite-canvas">Codex app 插件</a>
-</p>
+需要 Git、[Docker Engine / Docker Desktop](https://docs.docker.com/get-started/get-docker/) 和 Docker Compose v2.20+，使用 Linux 容器。无需在宿主机安装 Node、Python、FFmpeg 或 WhisperX。默认构建 CPU 版，包含 Web、Canvas Agent、Codex CLI、音视频运行时及本地对齐器。
 
-无限画布是一款面向图片创作的开源工作台。它把画布编排、AI 图片生成、参考图编辑、对话助手、提示词库和素材沉淀放在同一个界面里，适合用来探索视觉方案并连续迭代图片结果。
+仓库为 Private，目标电脑需先完成 GitHub 身份认证并具有仓库读取权限。
 
-> [!CAUTION]
-> 项目目前处于开发阶段，不保证历史数据兼容。各种本地存储格式都可能直接调整，欢迎关注后续更新。
->
-> 如果你需要稳定维护自己的分支，建议自行 fork 后独立开发。二次开发与 PR 请保留原作者信息和前端页面标识。
-
-## 赞助商
-
-<table>
-  <tr>
-    <td width="190" align="center">
-      <a href="https://www.atlascloud.ai/zh?utm_source=github&amp;utm_medium=link&amp;utm_campaign=infinite-canvas"><img src="assets/atlascloud.svg" width="163" alt="Atlas Cloud"></a>
-    </td>
-    <td>
-      <a href="https://www.atlascloud.ai/zh?utm_source=github&amp;utm_medium=link&amp;utm_campaign=infinite-canvas">Atlas Cloud</a> is a full-modal AI inference platform that gives developers a single AI API to access video generation, image generation, and LLM APIs. Instead of managing multiple vendor integrations, you connect once and get unified access to 300+ curated models across all modalities. Check out <a href="https://www.atlascloud.ai/console/coding-plan">Atlas Cloud's new coding plan promotion</a> for more budget-friendly API access.
-    </td>
-  </tr>
-</table>
-
-## 核心功能
-
-- 无限画布：多画布项目、节点拖拽缩放、连线、小地图、撤销重做、导入导出。
-- AI 创作：浏览器前台直连你配置的 OpenAI 兼容接口，支持文生图、图生图、参考图编辑、文本问答、音频和视频生成。
-- 画布助手：围绕选中节点和上游节点对话、生图，并把结果插回画布。
-- 本地 Agent：通过本机 Canvas Agent 连接 Codex / Claude Code，让 Agent 通过 MCP 操作当前画布；
-- Codex App 插件：提供 Codex app 插件，安装后会自动注册 MCP 并尝试拉起本地 Agent。
-- 插件系统：支持通过 URL 动态安装 / 启用 / 更新 / 卸载远程节点插件，并提供 TypeScript SDK 自行开发画布节点插件。
-- 自定义接口调用：可自定义生图 / 视频接口的调用方式，灵活适配各类中转站与自建服务。
-- 提示词库：浏览器前端直连多个 GitHub 开源项目，并缓存到 IndexedDB。
-
-完整功能说明见 [功能介绍](docs/content/docs/overview/features.mdx)。
-
-如果你在为担心没有合适的生图API来发愁，可以查看该免费生图项目：[chatgpt2api](https://github.com/basketikun/chatgpt2api)
-
-## 快速开始
-
-AI API Key、Base URL、画布、素材和生成记录默认保存在浏览器本地。
-
-### 本地开发
-
-```bash
-git clone git@github.com:basketikun/infinite-canvas.git
-cd infinite-canvas
-cd web
-bun install
-bun run dev
+```powershell
+git clone https://github.com/FUKANFENG/life-script-pipeline.git
+cd life-script-pipeline
+Copy-Item .env.example .env
 ```
 
-### Docker 运行
+在 `.env` 中填写本机的 `MINIMAX_API_KEY`、`XG_API_KEY` 和 `XG_API_BASE_URL`，然后启动：
 
-```bash
-git clone git@github.com:basketikun/infinite-canvas.git
-cd infinite-canvas
-docker compose up -d
+```powershell
+docker compose up -d --build
+docker compose ps
+docker compose exec -T agent node /app/docker/connection-info.mjs
 ```
 
-运行后默认端口3000，可访问 `http://localhost:3000`。
+打开 **http://localhost:3000**。在右上角 Agent 配置中填 `http://localhost:3000/canvas-agent`，连接 token 使用上一条命令显示的值。首次使用网页里的 Codex 还需在容器内登录：
 
-首次打开后进入右上角配置，填入自己的 OpenAI 兼容 `Base URL` 和 `API Key`。
+```powershell
+docker compose exec agent codex login --device-auth
+```
 
-如果默认的OpenAI接口调用方式与您的API不同，可自定义生图/视频脚本调用。
+按终端给出的地址在自己的浏览器完成登录。登录状态保存在独立数据卷中；容器不会自动读取宿主机 Codex 账户。
 
-## 效果展示
+Linux/macOS 的复制命令可改用 `cp .env.example .env`。默认镜像平台为 x86-64；Apple Silicon 可通过 Docker 的 amd64 模拟运行 CPU 版，速度和依赖兼容性需在目标机验收。
 
-<table width="100%">
-  <tr>
-    <td width="50%"><img src="https://i.ibb.co/TDFvGWDT/image.png" alt="image" border="0"></td>
-    <td width="50%"><img src="https://i.ibb.co/zVwJq3YS/image.png" alt="image" border="0"></td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="https://i.ibb.co/PvY3qhhK/image.png" alt="image" border="0"></td>
-    <td width="50%"><img src="https://i.ibb.co/7D04LwN/image.png" alt="image" border="0"></td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="https://i.ibb.co/bj30FtS5/5.png" alt="5" border="0"></td>
-    <td width="50%"><img src="https://i.ibb.co/hxRvjw51/image.png" alt="image" border="0"></td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="https://i.ibb.co/jkWsF8q1/image.png" alt="image" border="0"></td>
-    <td width="50%"><img src="https://i.ibb.co/XrnfXHx7/image.png" alt="image" border="0"></td>
-  </tr>
-</table>
+## 提交剧本与取回交付物
 
-## 联系方式
+```powershell
+docker compose cp "D:/scripts/story.docx" agent:/workspace/inbox/story.docx
+```
 
-项目定制二次开发需求 / 生图 API 需求可联系。
+在已连接的画布中告诉 Codex：“读取 `/workspace/inbox/story.docx`，按照故事生产手册先规划时长、场景复用、人物阶段和镜头密度，给我确认。”确认后再开始执行。项目资料保存在 `/workspace/outputs/<project-id>/`。
 
-邮箱：1844025705@qq.com · QQ：1844025705
+```powershell
+docker compose cp agent:/workspace/outputs/你的项目ID/deliverables ./deliverables
+```
 
-## 赞助支持
+审核台也支持分别下载视频、音频和字幕。画布与“我的素材”仍存于浏览器本地；换电脑时须导出/导入 `.canvas.zip`，不会因为部署 Docker 而自动同步。
 
-本项目长期开放广告赞助合作，欢迎品牌 / 产品投放，你的支持是持续更新的动力！
+## NVIDIA GPU 与局域网
 
-有广告赞助意向请通过上方联系方式沟通。
+有 NVIDIA GPU 并已配置容器 GPU 支持时，使用 CUDA 12.8 版对齐器：
 
-## 社区支持
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml exec -T agent local-aligner doctor --json
+```
 
-学 AI，上 L 站：[LinuxDO](https://linux.do/)
+局域网访问：把 `.env` 的 `WEB_BIND_ADDRESS` 改为 `0.0.0.0`，重建服务后使用 `http://部署电脑IP:3000`，Agent 地址对应改为 `http://部署电脑IP:3000/canvas-agent`。外部只需开放 Web 端口；Agent 经同源代理访问。此配置面向个人或可信局域网，未提供多人账户与公网登录。
 
-点击链接加入群聊【AI开源交流】：https://qm.qq.com/q/DFnKzZ807u
+## 数据与更新
 
-## 开源协议
+工作目录、Agent token、Codex 登录状态和模型缓存分别保存在四个 Docker 数据卷。`docker compose down` 不删除它们；**`down -v` 会删除数据卷**。旧项目输出、浏览器画布和本机 API 配置需要分别迁移。
 
-本项目使用 GNU Affero General Public License v3.0，见 [LICENSE](LICENSE)。
+```powershell
+git pull --ff-only
+docker compose up -d --build
+```
 
-你可以在遵守 AGPL-3.0 的前提下自由使用、复制、修改和分发本项目。如果你分发修改后的版本，或将其作为网站、SaaS 等网络服务提供给他人使用，需要向对应用户公开基于本项目形成的完整源代码，继续使用 AGPL-3.0 协议，并保留原项目的作者、版权、许可证和来源说明。
+API Key 只从本机 `.env` 读取，不写入镜像或源码。XG 服务继续由你单独部署；默认地址 `http://host.docker.internal:18080` 指向宿主机，不要在容器中使用 `127.0.0.1` 指代另一台服务。
 
-本项目禁止未经授权的闭源商用。如果你希望将无限画布用于商业项目，请尊重开源，遵循 AGPL-3.0 协议，继续开源基于本项目修改或开发的对应代码，回馈开源社区；如果无法公开对应代码，请联系作者购买商业授权后闭源使用。
+## 文档
 
-## Star History
+- [Docker 部署、配置、备份、迁移与故障排查](docs/DOCKER.md)
+- [故事生产操作手册](docs/migration/STORY_PRODUCTION_PLAYBOOK.md)
+- [生产链路与源码目录](PIPELINE.md)
+- [镜头审核与替换](docs/content/docs/canvas/shot-review.mdx)
+- [旧 Windows 原生迁移方案](docs/migration/README.md)
+- [Demo 实验记录](docs/archives/infinite-canvas-demo-experiments-2026-09-28.md)
 
-<a href="https://www.star-history.com/?repos=basketikun%2Finfinite-canvas&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=basketikun/infinite-canvas&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=basketikun/infinite-canvas&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=basketikun/infinite-canvas&type=date&legend=top-left" />
- </picture>
-</a>
+上游为 AGPL-3.0，本项目保留 [LICENSE](LICENSE) 与原作者归属。

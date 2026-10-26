@@ -59,7 +59,9 @@ docs/write-life-script/            剧本写稿技能（配套 Codex skill）
 
 ## 快速开始（新机器）
 
-按 `docs/migration/README.md` 的顺序执行（Doctor → Install-Workflow → Initialize-Environment → Register-CodexMcp → Test-Installation）。密钥只走环境变量：`MINIMAX_API_KEY`、`XG_API_KEY`（`web/.env.local`，不入库）。
+优先使用根目录 README 和 `docs/DOCKER.md` 的 Docker Compose 部署。容器内已包含 Web、Agent、Codex CLI、FFmpeg、媒体 Python 和 WhisperX；凭据从本机 `.env` 注入，工作目录与登录状态由数据卷持久化。
+
+已有 Windows 原生环境继续参考 `docs/migration/README.md`；它是旧迁移 ZIP 的安装流程，不能把其 PowerShell 安装器直接用作 Docker 入口。
 
 ## 许可
 

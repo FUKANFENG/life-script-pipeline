@@ -2,6 +2,8 @@
 
 ## 项目介绍
 
+- [定制工作流 Docker 部署](DOCKER.md)
+
 - [快速开始](/docs/overview/quick-start)
 - [功能介绍](/docs/overview/features)
 - [Render 部署](/docs/overview/render)

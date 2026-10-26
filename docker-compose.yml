@@ -1,11 +1,62 @@
+name: life-script-pipeline
+
 services:
   app:
-    image: ghcr.io/basketikun/infinite-canvas:latest
-    container_name: infinite-canvas
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    image: life-script-web:local
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "${WEB_BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-3000}:3000"
+    environment:
+      XG_API_BASE_URL: ${XG_API_BASE_URL:-http://host.docker.internal:18080}
+      XG_API_KEY: ${XG_API_KEY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      agent:
+        condition: service_healthy
     restart: unless-stopped
-    # 统计分析（可选，默认关闭）。每家一个独立变量，填了谁就启用谁，可同时启用多家：
-    # environment:
-    #   ANALYTICS_GA4_ID: G-XXXXXXXXXX                    # Google Analytics 4 衡量 ID
-    #   ANALYTICS_BAIDU_ID: xxxxxxxxxxxxxxxxxxxxxxxxxxxx   # 百度统计站点 ID
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  agent:
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    image: life-script-agent:${AGENT_IMAGE_VARIANT:-cpu}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.agent
+      args:
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
+    environment:
+      CANVAS_AGENT_HOST: 0.0.0.0
+      PORT: "17371"
+      INFINITE_CANVAS_WORKSPACE: /workspace
+      MINIMAX_API_KEY: ${MINIMAX_API_KEY:-}
+      MINIMAX_API_HOST: ${MINIMAX_API_HOST:-https://api.minimaxi.com}
+      LOCAL_ALIGNER_DEVICE: ${LOCAL_ALIGNER_DEVICE:-cpu}
+      STORY_ALIGNMENT_MAX_CONCURRENCY: "1"
+      XG_API_BASE_URL: ${XG_API_BASE_URL:-http://host.docker.internal:18080}
+      XG_API_KEY: ${XG_API_KEY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - workspace:/workspace
+      - agent-config:/home/canvas/.infinite-canvas
+      - codex-config:/home/canvas/.codex
+      - model-cache:/home/canvas/.cache
+    init: true
+    restart: unless-stopped
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  workspace:
+  agent-config:
+  codex-config:
+  model-cache:
